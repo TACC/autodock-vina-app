@@ -114,8 +114,15 @@ def main():
         # Let other ranks know pre-processing is finished; they can now ask for work
         logging.debug("Pre-processing finished; Starting sendrecv with all ranks")
         for i in range(1,SIZE):
-            COMM.sendrecv('pre-processing finished; ask for work', dest=i)
-        logging.debug("Sendrecv finished; All ranks responded; Starting main work")
+            COMM.send('pre-processing finished; ask for work', dest=i)
+        logging.debug("Send finished; All ranks sent;")
+
+        pre_responses = 0
+        while pre_responses != (SIZE - 1):
+            response = COMM.recv(source = MPI.ANY_SOURCE)
+            if response == 'ready to go':
+                pre_responses += 1
+        logging.debug("recv finished; All ranks responded; Starting main work")
 
         # Until all ligands have been docked, send more work to worker ranks
         while ligands:
@@ -127,10 +134,16 @@ def main():
         logging.debug("Tell all ranks there is no more work")
         for i in range(1,SIZE):
             COMM.send('no more ligands', dest=i)
-            COMM.recv(source=i)
-        time.sleep(10)
+        
+        current_responses = 0
+        while current_responses != (SIZE - 1):
+            response = COMM.recv(source = MPI.ANY_SOURCE)
+            if response == 'message received--proceed to post-processing':
+                current_responses += 1
+
         current_time = time.strftime("%H:%M:%S")
         logging.debug(f"Rank {RANK}: All ranks have responded; Proceeding to post-processing at {current_time}")
+        print(f"From Rank 0: All ranks done; going to post-processing at {time.time()}")
 
         # Post-Processing
         sort()
@@ -146,7 +159,7 @@ def main():
 
     else: # All ranks besides rank 0
         COMM.recv(source=0) # Wait for rank 0 to finish pre-processing
-        COMM.send(RANK, dest=0)
+        COMM.send('ready to go', dest=0)
         processing()    
 # End def main()
 
@@ -369,6 +382,7 @@ def processing():
         if ligand_set_path == 'no more ligands':
             current_time = time.strftime("%H:%M:%S")
             logging.debug(f"Rank {RANK} has finished all work at {current_time}")
+            print(f"Rank {RANK} done at {time.time()}")
             COMM.send('message received--proceed to post-processing',dest=0)
             break
         try:
