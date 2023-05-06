@@ -18,5 +18,13 @@ RUN wget -O ADFR.tar  https://ccsb.scripps.edu/adfr/download/1038/ \
     && ./install.sh -c 0 \
     && cd 
 
+# Clean up
+RUN rm -f /ADFR.tar /get-pip.py
+
 # Set path to include ADFR scripts
 ENV PATH="$PATH:/ADFRsuite_x86_64Linux_1.0/bin"
+
+# Copy scripts into container
+COPY ./autodock-src /autodock-src
+ENV PATH="$PATH:/autodock-src"
+
