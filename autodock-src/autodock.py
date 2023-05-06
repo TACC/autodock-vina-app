@@ -243,7 +243,7 @@ def prep_maps():
     if args.module == 'ad4':
         if exists(f'{RECEPTOR}.gpf'):
             os.remove(f'{RECEPTOR}.gpf')
-        subprocess.run([f"python3 ./scripts/write-gpf.py --box {'./configs/config.config'} \
+        subprocess.run([f"python3 /autodock-src/scripts/write-gpf.py --box {'./configs/config.config'} \
                         {RECEPTOR}.pdbqt"], shell=True)
         subprocess.run([f"autogrid4 -p {RECEPTOR}.gpf"], shell=True)
         logging.debug("Affinity maps generated")
@@ -263,7 +263,7 @@ def prep_receptor():
             COMM.Abort()
     if FLEXIBLE == True:
         try:
-            subprocess.run([f"pythonsh ./scripts/prepare_flexreceptor.py \
+            subprocess.run([f"pythonsh /autodock-src/scripts/prepare_flexreceptor.py \
                 -g {RECEPTOR}.pdbqt -r {RECEPTOR}.pdbqt \
                 -s {'_'.join(SIDECHAINS)}"], shell=True)
             logging.debug("Flex receptor prepped successfully")
@@ -457,15 +457,13 @@ def isolate_output():
 
 def reset():
     # Reset directory by removing all created files from this job
-    reset_log = open('reset.log', 'w')
     for dirpath, _, filenames in os.walk('.'):
         for filename in filenames:
             if filename.endswith(('.map', '.txt', '.gpf', '.fld', '.xyz')):
-                reset_log.write(f"Removed {filename}\n")
+                logging.debug(f"Removed {filename}\n")
                 os.remove(f'{dirpath}/{filename}') 
     shutil.rmtree('./output')
     shutil.rmtree('./configs')
-    reset_log.close()
         
 
 main()
