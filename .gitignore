@@ -6,3 +6,4 @@ merged.txt
 *.pdb
 *.pdbqt
 *.swp
+.DS_Store
