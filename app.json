@@ -10,7 +10,9 @@
   "shortDescription": "{{ app.description }}",
   "longDescription": "This application provides an interface for conducting virtual screening for identifying small molecules that bind to your target protein using Autodock Vina docking software. This application is intended to provide easy access to researchers wishing to perform small numbers of docking or virtual screening experiments. Visit the linked documentation page for a tutorial on running a job here.",
   "modules": [
-    "load tacc-apptainer"
+    "load tacc-apptainer",
+    "load mvapich2",
+    "unload xalt"
   ],
   "ontology": [],
   "parallelism": "PARALLEL",
