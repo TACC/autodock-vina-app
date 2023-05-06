@@ -1,6 +1,5 @@
 ./output
 ./configs
-Makefile
 results*
 *map*
 merged.txt
