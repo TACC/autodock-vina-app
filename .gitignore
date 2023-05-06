@@ -6,3 +6,4 @@ results*
 merged.txt
 *.pdb
 *.pdbqt
+*.swp

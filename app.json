@@ -1,14 +1,14 @@
 {
   "checkpointable": false,
-  "name": "{{ app.name }}",
-  "executionSystem": "tacc.ls6.adarrow",
+  "name": "wallen-{{ app.name }}",
+  "executionSystem": "tacc.lonestar6.wallen",
   "executionType": "HPC",
-  "deploymentPath": "{{ username }}/apps/{{ app.name }}-{{ app.version }}",
-  "deploymentSystem": "tacc.work.adarrow",
+  "deploymentPath": "tapis/apps/wallen-{{ app.name }}-{{ app.version }}",
+  "deploymentSystem": "cloud.corral.work.wallen",
   "helpURI": "https://drugdiscovery.tacc.utexas.edu/documentation",
-  "label": "Autodock Vina 1.2.3",
+  "label": "{{ app.label }}",
   "shortDescription": "{{ app.description }}",
-  "longDescription": "This application provides a graphical interface for conducting molecular docking experiments for identifying small molecules that bind to your target protein using Autodock Vina docking software. This application is intended to provide easy access to researchers wishing to perform small numbers of docking or virtual screening experiments. Visit the linked documentation page for a tutorial on running a job here.",
+  "longDescription": "This application provides an interface for conducting virtual screening for identifying small molecules that bind to your target protein using Autodock Vina docking software. This application is intended to provide easy access to researchers wishing to perform small numbers of docking or virtual screening experiments. Visit the linked documentation page for a tutorial on running a job here.",
   "modules": [
     "load tacc-apptainer"
   ],
@@ -31,7 +31,7 @@
     },
     "details": {
       "label": "Protein Receptor Input File",
-      "description": "Upload a protein receptor (.pdb or .pdbqt format)."
+      "description": "Target protein receptor in .pdb or .pdbqt format."
     },
     "semantics": {}
   }],
@@ -65,7 +65,7 @@
       },      
       "details": {
         "label": "Ligand Library",
-        "description": "Select the ligand database to search against."
+        "description": "Select the ligand database to screen."
       }
     },
     {
@@ -78,8 +78,8 @@
         "order": 2
       },
       "details": {
-        "label": "Center X-Coordinate",
-        "description": "Enter an x-coordinate to designate the center of the search volume. Typically, this coordinate is the center of the protein's active site."
+        "label": "center_x",
+        "description": "X coordinate of the center (Angstrom)."
       }
     },
     {  
@@ -92,8 +92,8 @@
         "order": 3
       },
       "details": {
-        "label": "Center Y-Coordinate",
-        "description": "Enter a y-coordinate to designate the center of the search volume."
+        "label": "center_y",
+        "description": "Y coordinate of the center (Angstrom)."
       }
     },
     {
@@ -106,8 +106,8 @@
         "order": 4
       },
       "details": {
-        "label": "Center Z-Coordinate",
-        "description": "Enter a z-coordinate to designate the center of the search volume."
+        "label": "center_z",
+        "description": "Z coordinate of the center (Angstrom)."
       }
     },
     {
@@ -120,8 +120,8 @@
         "order": 5
       },
       "details": {
-        "label": "Grid Box X-Value",
-        "description": "Specify, in Angstroms, the size of the box around the active site to search within. Too large a value can lead to inaccurate binding positions outside of the active site. The maximum size is 30 x 30 x 30 Angstroms."
+        "label": "size_x",
+        "description": "Size in the X dimension (Angstrom)."
       }
     },
     {
@@ -134,8 +134,8 @@
         "order": 6
       },
       "details": {
-        "label": "Grid Box Y-Value",
-        "description": "Specify, in Angstroms, the size of the box around the active site to search within."
+        "label": "size_y",
+        "description": "Size in the Y dimension (Angstrom)."
       }
     },
     {  
@@ -148,8 +148,8 @@
         "order": 7   
       },
       "details": {
-        "label": "Grid Box Z-Value",
-        "description": "Specify, in Angstroms, the size of the box around the active site to search within."
+        "label": "size_z",
+        "description": "Size in the Z dimension (Angstrom)."
       }
     },
     {  
@@ -210,8 +210,8 @@
         "order": 11
       },
       "details": {
-        "label": "Returned Scores",
-        "description": "Provide the number of top scoring docked ligands to be returned (max: 1000)."
+        "label": "Docked Molecules Returned",
+        "description": "The number of top scoring docked ligands to be returned (max: 1000)."
       }
     }
   ],
