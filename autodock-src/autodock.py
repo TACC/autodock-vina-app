@@ -238,6 +238,7 @@ def clean_as_we_go():
 
                 # check for the top score 
                 # then do it again with the top score
+                #needs to be save
         
     
     #informs rank 0 that rank 1 is done 
