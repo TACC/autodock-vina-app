@@ -81,7 +81,7 @@ elif DOCKING == 'flexible':
  
 SIDECHAINS = (args.sidechains).split('_')
 
-
+#this is just a comment
 LIBRARY_SHORT = args.ligand_library.split('/')[4]
 NUMBER_OF_OUTPUTS = args.number if args.number <= 1000 else 1000
 
