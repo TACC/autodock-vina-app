@@ -225,11 +225,11 @@ def clean_as_we_go():
             sort() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores.txt". 
             with open('./output/results/sorted_scores.txt', 'r') as sorted_scores:
                 lines = sorted_scores.readlines()
-                logging.info("The original list is : " + str(lines)) 
+                #logging.info("The original list is : " + str(lines)) 
                 
                 # Get Top N elements
                 res = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results]
-                logging.info("The top N results are : " + str(res)) 
+                #logging.info("The top N results are : " + str(res)) 
 
                 threshold_score = res[-1] # find the threshold 
 
@@ -407,7 +407,7 @@ def run_docking(ligands, v, directory): #step 3
                         | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
                         >> results_{RANK}.txt"], shell=True)
         COMM.send(f"File results_{RANK}.txt was generated", dest=1)
-        time.sleep(1)
+        time.sleep(12)
 
 
 def unpickle_and_decompress(path_to_file):

@@ -8,5 +8,5 @@ test:
 
 clean:
 	rm autodock.log results.tar.gz
-	rm -rf config/ output/ results_*
+	rm -rf config/ output/ results*
 
