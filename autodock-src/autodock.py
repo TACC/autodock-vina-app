@@ -220,18 +220,15 @@ def clean_as_we_go():
         elif "File results" in message:
             current_time = time.strftime("%H:%M:%S")
             sender_rank = message.split('_')[1]  
-            logging.info(f"Received file generation notification from Rank {sender_rank} at {current_time}")
-            logging.info(message)
+            logging.info(message + " at " + current_time)
             
-            sort() # this cats and sorts the files that was generated. 
+            sort() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores.txt". 
             with open('./output/results/sorted_scores.txt', 'r') as sorted_scores:
                 lines = sorted_scores.readlines()
                 logging.info("The original list is : " + str(lines)) 
                 
                 # Get Top N elements
                 res = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results]
- 
-             # printing result 
                 logging.info("The top N results are : " + str(res)) 
 
                 threshold_score = res[-1] # find the threshold 
@@ -239,8 +236,7 @@ def clean_as_we_go():
                 # check for the top score 
                 # then do it again with the top score
                 #needs to be save
-        
-    
+
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0) 
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
@@ -516,8 +512,9 @@ def sort(): # step 4
     #   (ligand, top score), then sorts by score so that highest scoring 
     #   ligands are on top; prints these sorted results are written to 
     #   sorted_scores.txt; finally cleans up the directory
-    subprocess.run(["cat results* >> results_merged.txt"], shell=True)
-    INPUTFILE = 'results_merged.txt'
+
+    subprocess.run(["cat results* >> merged_results.txt"], shell=True)
+    INPUTFILE = 'merged_results.txt'
     OUTPUTFILE = './output/results/sorted_scores.txt'
     
     result = []
