@@ -227,26 +227,39 @@ def clean_as_we_go():
                 lines = sorted_scores.readlines()
                 #logging.info("The original list is : " + str(lines)) 
                 # Get Top N elements
-                res = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results]
-                #logging.info("The top N results are : " + str(res)) 
-                # check for the top score 
-                # then do it again with the top score 
-                # needs to be save 
+                sorted_lines = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results]
+                
+                #logging.info("The top N results are : " + str(sorted_lines)) 
+                
+                # threshold = sorted_lines[top_results - 1]
+                # threshold_score = float(sorted_lines[top_results - 1].split()[1])
+
 
                 if len(lines) > top_results:
-                    # The threshold is the score of the Nth result
-                    threshold_score = float(lines[top_results - 1].split()[0])
-                    
-                    # Now iterate over the files and delete those below the threshold
-                    for line in lines[top_results:]:  # Only look at results beyond the top N
-                        score, filename = line.strip().split()
-                        score = float(score)
-                        if score < threshold_score:
-                            file_path = os.path.join(ligands_folder, filename)
-                            if os.path.exists(file_path):
-                                os.remove(file_path)
-                                logging.info(f"Deleted {file_path} with score {score}, below threshold {threshold_score}")
+                        logging.info("beginning to clean")
+                        threshold_score = float(sorted_lines[top_results - 1].split()[1])
+                        for line in lines:
+                            score = float(line.split()[1])
+                            if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
+                                moleculeID = line.split()[0]
+                                logging.info("deleting file")
 
+                # for dirpath, _, filenames in os.walk('.'):
+                #     for filename in filenames:
+                #----------------
+                # if len(lines) > top_results:
+                #     logging.info("this is working")
+                #     # The threshold is the score of the Nth result
+                #     threshold_score = float(sorted_lines[top_results - 1].split()[1])
+                #     # Delete files with scores below the threshold
+                #     for line in lines[top_results:]:  
+                #         score = float(line.split()[1])
+                #         if score < threshold_score:
+                #             moleculeID = line.split()[0]
+                #             file_path = os.path.join('output/results/ligands', f'{moleculeID}.pdbqt')  
+                #             if os.path.exists(file_path):
+                #                 os.remove(file_path)
+                #                 logging.info(f"Deleted {file_path} with score {score}, below threshold {threshold_score}")
 
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0) 
