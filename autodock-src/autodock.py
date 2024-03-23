@@ -225,46 +225,44 @@ def clean_as_we_go():
             sort() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores.txt". 
             with open('./output/results/sorted_scores.txt', 'r') as sorted_scores:
                 lines = sorted_scores.readlines()
-                #logging.info("The original list is : " + str(lines)) 
+                logging.info("reading lines:")
                 # Get Top N elements
                 sorted_lines = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results]
-                
-                #logging.info("The top N results are : " + str(sorted_lines)) 
-                
-                # threshold = sorted_lines[top_results - 1]
-                # threshold_score = float(sorted_lines[top_results - 1].split()[1])
+                logging.info(str(len(lines)))
+                logging.info(str(len(sorted_lines)))
+                logging.info(str(sorted_lines))
+                #________
+                logging.info("beginning to clean")
+                threshold_score = float(sorted_lines[-1].split()[1])
+                logging.info(str(threshold_score))
 
-
-                if len(lines) > top_results:
-                        logging.info("beginning to clean")
-                        threshold_score = float(sorted_lines[top_results - 1].split()[1])
-                        for line in lines:
-                            score = float(line.split()[1])
-                            if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
-                                moleculeID = line.split()[0]
-                                logging.info("deleting file")
-
-                # for dirpath, _, filenames in os.walk('.'):
-                #     for filename in filenames:
-                #----------------
-                # if len(lines) > top_results:
-                #     logging.info("this is working")
-                #     # The threshold is the score of the Nth result
-                #     threshold_score = float(sorted_lines[top_results - 1].split()[1])
-                #     # Delete files with scores below the threshold
-                #     for line in lines[top_results:]:  
-                #         score = float(line.split()[1])
-                #         if score < threshold_score:
+                #threshold_line = sorted_lines[top_results - 1]
+                #threshold_score = float(threshold_line.split()[-1])
+                #logging.info(f"The threshold score is: {threshold_score}")
+                #threshold_score = float(sorted_lines[min(len(sorted_lines), top_results) - 1].split()[1])
+                #threshold_score = float(sorted_lines[top_results - 1].split()[1])
+                #logging.info(str(threshold_score))
+                # for line in lines:
+                #     score = float(line.split()[1])
+                #     if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
                 #             moleculeID = line.split()[0]
-                #             file_path = os.path.join('output/results/ligands', f'{moleculeID}.pdbqt')  
-                #             if os.path.exists(file_path):
-                #                 os.remove(file_path)
-                #                 logging.info(f"Deleted {file_path} with score {score}, below threshold {threshold_score}")
+                #             logging.info("deleting file which is not above the threshold")
+
+
+                # if len(lines) > top_results:
+                #         logging.info("beginning to clean")
+                #         threshold_score = float(sorted_lines[top_results - 1].split()[1])
+                #         for line in lines:
+                #             score = float(line.split()[1])
+                #             if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
+                #                 moleculeID = line.split()[0]
+                #                 logging.info("deleting file which is not above the threshold")
+
+               
 
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0) 
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
-
 
 def check_user_configs():
     # User inputted box size must be within bounds specified below
