@@ -222,19 +222,57 @@ def clean_as_we_go():
             sender_rank = message.split('_')[1]  
             logging.info(message + " at " + current_time)
             
-            sort() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores.txt". 
-            with open('./output/results/sorted_scores.txt', 'r') as sorted_scores:
+
+            sort_for_rank1() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores_all.txt". 
+            with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
                 lines = sorted_scores.readlines()
                 logging.info("reading lines:")
-                # Get Top N elements
-                sorted_lines = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results]
-                logging.info(str(len(lines)))
-                logging.info(str(len(sorted_lines)))
-                logging.info(str(sorted_lines))
-                #________
-                logging.info("beginning to clean")
-                threshold_score = float(sorted_lines[-1].split()[1])
-                logging.info(str(threshold_score))
+                logging.info(f'number of lines = {str(len(lines))}')
+
+            # Remove Top N elements
+            lines_to_remove = lines[:top_results]
+            #sorted_lines = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results] #get tops scores until the Nth element
+            logging.info(str(len(lines))) # checks size for the lines in sorted_scores.txt 
+            logging.info(str(len(lines_to_remove))) #checks size for sorted_lines which should only have until the nth element
+            #________
+            #threshold_score = float(sorted_lines[-1].split()[1])
+            #logging.info(str(threshold_score))
+
+            # Pausing here -
+            # 'name' is part of the filename we need to remove, e.g.  it might look like 'ZINC000038308179-t1.pdbqt'
+            # then we need to walk the output folder to see if it is in there, might look like './output/pdbqt/21/output_ZINC000038308179-t1.pdbqt'
+            # if it is there, then remove it
+            # Also need to consider how we can avoid trying to remove molecules we already removed on an earlier iteration of this loop
+            #   perhaps try to remove the score from ./results_nn.txt?
+            for line in lines_to_remove:
+                name = line.split()[0]
+                try:
+                    for dirpath, _, filenames in os.walk('./output/pdbqt'):
+                        for filename in filenames:
+                            file_path = os.path.abspath(name)
+                            logging.info(filename)
+                    
+                            if filename == 'output_' + name: 
+                                logging.info("it exists begining deletion")
+                                os.remove(filename)
+                                logging.info(f"file path is: {file_path}")
+                        
+                except:
+            
+                    logging.info("file couldnt be deleted")
+                
+                
+                
+                
+                
+                
+                
+                
+                #----------
+                #if score >= threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
+                #        logging.info(str(score) +">="+ str(threshold_score))
+                #        molecule = line.split()[0]
+                #        logging.info("deleting file which is not above the threshold")
 
                 #threshold_line = sorted_lines[top_results - 1]
                 #threshold_score = float(threshold_line.split()[-1])
@@ -256,14 +294,12 @@ def clean_as_we_go():
                 #             score = float(line.split()[1])
                 #             if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
                 #                 moleculeID = line.split()[0]
-                #                 logging.info("deleting file which is not above the threshold")
-
-               
+                #                 logging.info("deleting file which is dnot above the threshold")
 
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0) 
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
-
+    
 def check_user_configs():
     # User inputted box size must be within bounds specified below
     for size in [SIZE_X, SIZE_Y, SIZE_Z]:
@@ -429,7 +465,7 @@ def run_docking(ligands, v, directory): #step 3
                         | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
                         >> results_{RANK}.txt"], shell=True)
         COMM.send(f"File results_{RANK}.txt was generated", dest=1)
-        time.sleep(12)
+        time.sleep(12) # REMOVE THIS LATER
 
 
 def unpickle_and_decompress(path_to_file):
@@ -538,7 +574,6 @@ def sort(): # step 4
     subprocess.run(["cat results* >> merged_results.txt"], shell=True)
     INPUTFILE = 'merged_results.txt'
     OUTPUTFILE = './output/results/sorted_scores.txt'
-    
     result = []
 
     with open(INPUTFILE) as data:
@@ -552,7 +587,38 @@ def sort(): # step 4
     with open(OUTPUTFILE, 'w') as data:
         data.writelines(sorted(result[:NUMBER_OF_OUTPUTS], \
                         key=lambda x: float(x.split()[1])))
-    
+        
+def sort_for_rank1(): # step 4 
+    """
+        The sort() function cats all results files into one, it arranges ligands based on the highest score; prints these sorted results are written to 
+        sorted_scores.txt; finally cleans up the directory
+    """
+    # Cats all results files into one, arranges each line to read: 
+    #   (ligand, top score), then sorts by score so that highest scoring 
+    #   ligands are on top; prints these sorted results are written to 
+    #   sorted_scores.txt; finally cleans up the directory
+
+    try:
+        os.remove('./output/results/sorted_scores_all.txt')
+        os.remove('merged_results.txt')
+    except:
+        logging.info('exception in sort_for_rank1')
+    subprocess.run(["cat results* >> merged_results.txt"], shell=True)
+    INPUTFILE = 'merged_results.txt'
+    OUTPUTFILE = './output/results/sorted_scores_all.txt'
+    result = []
+
+    with open(INPUTFILE) as data:
+        line = data.readline()
+        while line:
+            filename = basename(line.split()[-1])
+            v = data.readline().split()[0]
+            result.append(f'{v} {filename}\n')
+            line = data.readline()
+
+    with open(OUTPUTFILE, 'w') as data:
+        data.writelines(sorted(result, key=lambda x: float(x.split()[1])))
+
 
 def isolate_output(): #step 5 isolates
     """
