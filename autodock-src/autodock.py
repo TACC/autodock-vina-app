@@ -249,23 +249,18 @@ def clean_as_we_go():
                 try:
                     for dirpath, _, filenames in os.walk('./output/pdbqt'):
                         for filename in filenames:
-                            file_path = os.path.abspath(name)
-                            logging.info(filename)
-                    
-                            if filename == 'output_' + name: 
-                                logging.info("it exists begining deletion")
-                                os.remove(filename)
-                                logging.info(f"file path is: {file_path}")
-                        
+                            file_path = os.path.join(dirpath, filename)
+                            if filename == 'output_' + name:# this is correct
+                                # logging.info(filename)
+                                # logging.info(name)
+                                # logging.info(f"file path is: {file_path}")
+                                os.remove(file_path)
+                                logging.info(f'file path {file_path} was removed')
+                               
+
                 except:
-            
+                    
                     logging.info("file couldnt be deleted")
-                
-                
-                
-                
-                
-                
                 
                 
                 #----------
