@@ -222,75 +222,54 @@ def clean_as_we_go():
             sender_rank = message.split('_')[1]  
             logging.info(message + " at " + current_time)
             
-
             sort_for_rank1() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores_all.txt". 
             with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
                 lines = sorted_scores.readlines()
-                logging.info("reading lines:")
                 logging.info(f'number of lines = {str(len(lines))}')
-
+            
             # Remove Top N elements
-            lines_to_remove = lines[:top_results]
+            lines_to_remove = lines[top_results:]
             #sorted_lines = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results] #get tops scores until the Nth element
-            logging.info(str(len(lines))) # checks size for the lines in sorted_scores.txt 
-            logging.info(str(len(lines_to_remove))) #checks size for sorted_lines which should only have until the nth element
-            #________
-            #threshold_score = float(sorted_lines[-1].split()[1])
-            #logging.info(str(threshold_score))
-
+            logging.info(f'number of lines in linestoremove= {str(len(lines_to_remove))}') #checks size for sorted_lines which should only have until the nth element
+            #logging.info(lines)
+            #logging.info(lines_to_remove)
             # Pausing here -
             # 'name' is part of the filename we need to remove, e.g.  it might look like 'ZINC000038308179-t1.pdbqt'
             # then we need to walk the output folder to see if it is in there, might look like './output/pdbqt/21/output_ZINC000038308179-t1.pdbqt'
             # if it is there, then remove it
             # Also need to consider how we can avoid trying to remove molecules we already removed on an earlier iteration of this loop
             #   perhaps try to remove the score from ./results_nn.txt?
-            for line in lines_to_remove:
-                name = line.split()[0]
-                try:
-                    for dirpath, _, filenames in os.walk('./output/pdbqt'):
-                        for filename in filenames:
-                            file_path = os.path.join(dirpath, filename)
-                            if filename == 'output_' + name:# this is correct
-                                # logging.info(filename)
-                                # logging.info(name)
-                                # logging.info(f"file path is: {file_path}")
-                                os.remove(file_path)
-                                logging.info(f'file path {file_path} was removed')
-                               
-
-                except:
+            
+            try:
+                for dirpath, _, filenames in os.walk('./output/pdbqt'):
+                        for line in lines_to_remove:
+                            name = line.split()[0]
+                            for filename in filenames:
+                                file_path = os.path.join(dirpath, filename)
+                                if filename == f'output_{name}':# this is correct
+                                    # logging.info(filename)
+                                    # logging.info(name)
+                                    os.remove(file_path)
+                                    logging.info(f'file path {file_path} was removed')
+            except:
+                logging.info("file couldnt be deleted")
+            
+            # for line in lines_to_remove:
+            #     name = line.split()[0]
+            #     try:
+            #         for dirpath, _, filenames in os.walk('./output/pdbqt'):
+            #             for filename in filenames:
+            #                 file_path = os.path.join(dirpath, filename)
+            #                 if filename == 'output_' + name:# this is correct
+            #                     # logging.info(filename)
+            #                     # logging.info(name)
+            #                     os.remove(file_path)
+            #                     logging.info(f'file path {file_path} was removed')
+                            
+            #     except:
                     
-                    logging.info("file couldnt be deleted")
-                
-                
-                #----------
-                #if score >= threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
-                #        logging.info(str(score) +">="+ str(threshold_score))
-                #        molecule = line.split()[0]
-                #        logging.info("deleting file which is not above the threshold")
-
-                #threshold_line = sorted_lines[top_results - 1]
-                #threshold_score = float(threshold_line.split()[-1])
-                #logging.info(f"The threshold score is: {threshold_score}")
-                #threshold_score = float(sorted_lines[min(len(sorted_lines), top_results) - 1].split()[1])
-                #threshold_score = float(sorted_lines[top_results - 1].split()[1])
-                #logging.info(str(threshold_score))
-                # for line in lines:
-                #     score = float(line.split()[1])
-                #     if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
-                #             moleculeID = line.split()[0]
-                #             logging.info("deleting file which is not above the threshold")
-
-
-                # if len(lines) > top_results:
-                #         logging.info("beginning to clean")
-                #         threshold_score = float(sorted_lines[top_results - 1].split()[1])
-                #         for line in lines:
-                #             score = float(line.split()[1])
-                #             if score > threshold_score: # REMEMBER MORE NEGATIVE THE BETTER SO IF SCORE IS -6.89 > -8.92 the more positive the greater it is
-                #                 moleculeID = line.split()[0]
-                #                 logging.info("deleting file which is dnot above the threshold")
-
+            #         logging.info("file couldnt be deleted")
+                            
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0) 
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
@@ -606,8 +585,11 @@ def sort_for_rank1(): # step 4
     with open(INPUTFILE) as data:
         line = data.readline()
         while line:
+            logging.info(line)
             filename = basename(line.split()[-1])
+            logging.info(filename)
             v = data.readline().split()[0]
+            logging.info(v)
             result.append(f'{v} {filename}\n')
             line = data.readline()
 
