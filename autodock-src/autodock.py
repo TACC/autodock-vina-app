@@ -434,10 +434,24 @@ def run_docking(ligands, v, directory): #step 3
         except Exception as e:
             logging.error(f"Rank {RANK}: Error writing ligand {filename}; Error = {e}")
             continue
-        subprocess.run([f"grep -i -m 1 'REMARK VINA RESULT:' \
-                        {output_directory}/output_{filename} \
-                        | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
-                        >> results_{RANK}.txt"], shell=True)
+        ### putting subprocess write function on one line to avoid race condition
+        #subprocess.run([f"grep -i -m 1 'REMARK VINA RESULT:' \
+        #                {output_directory}/output_{filename} \
+        #                | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
+        #                >> results_{RANK}.txt"], shell=True)
+        sub_score=''
+        logging.debug(f'trying to open {output_directory}/output_{filename}')
+        with open(f'{output_directory}/output_{filename}', 'r') as f:
+            logging.debug(f'opened {output_directory}/output_{filename}')
+            for line in f:
+                if "REMARK VINA RESULT" in line:
+                    sub_score = line.split()[3]
+                    break
+        output_lines = f'{sub_score}\n{filename}\n'
+        with open(f'results_{RANK}.txt', 'w') as out:
+            out.write(output_lines)
+
+        
         COMM.send(f"File results_{RANK}.txt was generated", dest=1)
         time.sleep(12) # REMOVE THIS LATER
 
@@ -525,8 +539,9 @@ def processing():
         try:
             run_docking(ligands, v, directory)
         except Exception as e:
-            logging.error(f'Error on rank {RANK}: docking error with \
-                            ligand set {ligand_set_path}, ligands {ligands}.')
+            #logging.error(f'Error on rank {RANK}: docking error with \
+            #                ligand set {ligand_set_path}, ligands {ligands}.')
+            logging.error(f'Error on rank {RANK}: docking error with ligand set {ligand_set_path}.')
             logging.debug(e)
 
         count += 1
@@ -585,11 +600,8 @@ def sort_for_rank1(): # step 4
     with open(INPUTFILE) as data:
         line = data.readline()
         while line:
-            logging.info(line)
             filename = basename(line.split()[-1])
-            logging.info(filename)
             v = data.readline().split()[0]
-            logging.info(v)
             result.append(f'{v} {filename}\n')
             line = data.readline()
 
@@ -604,7 +616,7 @@ def isolate_output(): #step 5 isolates
     # Copies the user-specified top n ligand output files to a single directory
     top_ligand_filenames = []
     ligands_docked = 0
-    
+    logging.info("runing isolate_output")
     with open('./output/results/sorted_scores.txt', 'r') as results:
         for _, line in enumerate(results):
             top_ligand_filenames.append(line.split()[0])
