@@ -153,6 +153,8 @@ def main():
         #     if response == 'message received--proceed to post-processing':
         #         current_responses += 1
 
+
+
         # When all ligands have been sent, let worker ranks know they can stop
         logging.info("Tell all ranks there is no more work")
         for i in range(2,SIZE):
@@ -206,7 +208,8 @@ def clean_as_we_go():
     logging.info("We are cleaning as we go")
     ligands_folder = 'output/results/ligands'
     top_results = args.number
-    
+    file_counter = 0
+    files_before_cleanup = 10
     while True:
         # receive message from any source
         message = COMM.recv(source=MPI.ANY_SOURCE)
@@ -218,58 +221,50 @@ def clean_as_we_go():
         
         # check if its a file result update
         elif "File results" in message:
+            file_counter+=1
             current_time = time.strftime("%H:%M:%S")
             sender_rank = message.split('_')[1]  
             logging.info(message + " at " + current_time)
+            if file_counter >= files_before_cleanup:
+                sort_for_rank1() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores_all.txt". 
+                with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
+                    lines = sorted_scores.readlines()
+                    logging.info(f'number of lines = {str(len(lines))}')
+                
+                # Remove Top N elements
+                lines_to_remove = lines[top_results:]
+                logging.info(f'number of lines in linestoremove= {str(len(lines_to_remove))}') #checks size for sorted_lines which should only have until the nth element
+                
+
+                # Pausing here -
+                # 'name' is part of the filename we need to remove, e.g.  it might look like 'ZINC000038308179-t1.pdbqt'
+                # then we need to walk the output folder to see if it is in there, might look like './output/pdbqt/21/output_ZINC000038308179-t1.pdbqt'
+                # if it is there, then remove it
+                # Also need to consider how we can avoid trying to remove molecules we already removed on an earlier iteration of this loop
+                #   perhaps try to remove the score from ./results_nn.txt?
+                
+                # line_counter = 0
+                # lines_before_clean_up = 10
+                # if line_counter >= lines_before_clean_up:
+
+                try:
+                        # line_counter+=1
+                        for dirpath, _, filenames in os.walk('./output/pdbqt'):
+                                for line in lines_to_remove:
+                                    name = line.split()[0]
+                                    for filename in filenames:
+                                        file_path = os.path.join(dirpath, filename)
+                                        if filename == f'output_{name}':# this is correct
+                                                # logging.info(filename)
+                                                # logging.info(name)
+                                            os.remove(file_path)
+                                            logging.info(f'file path {file_path} was removed')
+                        # line_counter = 0
+                except:
+                            logging.info("file couldnt be deleted")
+                file_counter = 0   
             
-            sort_for_rank1() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores_all.txt". 
-            with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
-                lines = sorted_scores.readlines()
-                logging.info(f'number of lines = {str(len(lines))}')
-            
-            # Remove Top N elements
-            lines_to_remove = lines[top_results:]
-            #sorted_lines = sorted(lines, key = lambda x:float(x.split()[1]))[:top_results] #get tops scores until the Nth element
-            logging.info(f'number of lines in linestoremove= {str(len(lines_to_remove))}') #checks size for sorted_lines which should only have until the nth element
-            #logging.info(lines)
-            #logging.info(lines_to_remove)
-            # Pausing here -
-            # 'name' is part of the filename we need to remove, e.g.  it might look like 'ZINC000038308179-t1.pdbqt'
-            # then we need to walk the output folder to see if it is in there, might look like './output/pdbqt/21/output_ZINC000038308179-t1.pdbqt'
-            # if it is there, then remove it
-            # Also need to consider how we can avoid trying to remove molecules we already removed on an earlier iteration of this loop
-            #   perhaps try to remove the score from ./results_nn.txt?
-            
-            try:
-                for dirpath, _, filenames in os.walk('./output/pdbqt'):
-                        for line in lines_to_remove:
-                            name = line.split()[0]
-                            for filename in filenames:
-                                file_path = os.path.join(dirpath, filename)
-                                if filename == f'output_{name}':# this is correct
-                                    # logging.info(filename)
-                                    # logging.info(name)
-                                    os.remove(file_path)
-                                    logging.info(f'file path {file_path} was removed')
-            except:
-                logging.info("file couldnt be deleted")
-            
-            # for line in lines_to_remove:
-            #     name = line.split()[0]
-            #     try:
-            #         for dirpath, _, filenames in os.walk('./output/pdbqt'):
-            #             for filename in filenames:
-            #                 file_path = os.path.join(dirpath, filename)
-            #                 if filename == 'output_' + name:# this is correct
-            #                     # logging.info(filename)
-            #                     # logging.info(name)
-            #                     os.remove(file_path)
-            #                     logging.info(f'file path {file_path} was removed')
-                            
-            #     except:
-                    
-            #         logging.info("file couldnt be deleted")
-                            
+    
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0) 
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
@@ -435,21 +430,23 @@ def run_docking(ligands, v, directory): #step 3
             logging.error(f"Rank {RANK}: Error writing ligand {filename}; Error = {e}")
             continue
         ### putting subprocess write function on one line to avoid race condition
-        #subprocess.run([f"grep -i -m 1 'REMARK VINA RESULT:' \
-        #                {output_directory}/output_{filename} \
-        #                | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
-        #                >> results_{RANK}.txt"], shell=True)
-        sub_score=''
-        logging.debug(f'trying to open {output_directory}/output_{filename}')
-        with open(f'{output_directory}/output_{filename}', 'r') as f:
-            logging.debug(f'opened {output_directory}/output_{filename}')
-            for line in f:
-                if "REMARK VINA RESULT" in line:
-                    sub_score = line.split()[3]
-                    break
-        output_lines = f'{sub_score}\n{filename}\n'
-        with open(f'results_{RANK}.txt', 'w') as out:
-            out.write(output_lines)
+        subprocess.run([f"grep -i -m 1 'REMARK VINA RESULT:' \
+                       {output_directory}/output_{filename} \
+                       | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
+                       >> results_{RANK}.txt"], shell=True)
+        
+        
+        # sub_score=''
+        # logging.debug(f'trying to open {output_directory}/output_{filename}')
+        # with open(f'{output_directory}/output_{filename}', 'r') as f:
+        #     logging.debug(f'opened {output_directory}/output_{filename}')
+        #     for line in f:
+        #         if "REMARK VINA RESULT" in line:
+        #             sub_score = line.split()[3]
+        #             break
+        # output_lines = f'{sub_score}\n{filename}\n'
+        # with open(f'results_{RANK}.txt', 'w') as out:
+        #     out.write(output_lines)
 
         
         COMM.send(f"File results_{RANK}.txt was generated", dest=1)
@@ -598,10 +595,12 @@ def sort_for_rank1(): # step 4
     result = []
 
     with open(INPUTFILE) as data:
-        line = data.readline()
+        line = data.readline()    
         while line:
             filename = basename(line.split()[-1])
+            #logging.info(filename)
             v = data.readline().split()[0]
+            #logging.info(v)
             result.append(f'{v} {filename}\n')
             line = data.readline()
 
