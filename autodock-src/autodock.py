@@ -146,14 +146,15 @@ def main():
 
         COMM.send('stop working', dest=1)
 
-        finished_message = COMM.recv(source=1)
+        finished_message = COMM.recv(source=1,tag=1)
+        logging.info(finished_message)
+        top_ligand_filenames =  COMM.recv(source=1,tag=2)
+        logging.info(top_ligand_filenames)
         #if finished_message == ''
         # while current_responses != (1):
         #     response = COMM.recv(source = 1)
         #     if response == 'message received--proceed to post-processing':
         #         current_responses += 1
-
-
 
         # When all ligands have been sent, let worker ranks know they can stop
         logging.info("Tell all ranks there is no more work")
@@ -167,14 +168,14 @@ def main():
                 current_responses += 1
 
 
-
         current_time = time.strftime("%H:%M:%S")
         logging.info(f"Rank {RANK}: All ranks have responded; Proceeding to post-processing at {current_time}")
         print(f"From Rank 0: All ranks done; going to post-processing at {time.time()}")
 
         # Post-Processing
         sort()
-        isolate_output()
+        isolate_output_for_1(top_ligand_filenames)
+        #isolate_output()
         reset()
         end_time = time.time()
         total_time = end_time - start_time
@@ -243,10 +244,6 @@ def clean_as_we_go():
                 # Also need to consider how we can avoid trying to remove molecules we already removed on an earlier iteration of this loop
                 #   perhaps try to remove the score from ./results_nn.txt?
                 
-                # line_counter = 0
-                # lines_before_clean_up = 10
-                # if line_counter >= lines_before_clean_up:
-
                 try:
                         # line_counter+=1
                         for dirpath, _, filenames in os.walk('./output/pdbqt'):
@@ -266,7 +263,9 @@ def clean_as_we_go():
             
     
     #informs rank 0 that rank 1 is done 
-    COMM.send("finished--proceed to post-processing",dest = 0) 
+    COMM.send("finished--proceed to post-processing",dest = 0,tag=1)
+    COMM.send(lines[:top_results],dest = 0,tag=2)
+    #COMM.send("hi",dest = 0,tag=2)
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
     
 def check_user_configs():
@@ -607,6 +606,30 @@ def sort_for_rank1(): # step 4
     with open(OUTPUTFILE, 'w') as data:
         data.writelines(sorted(result, key=lambda x: float(x.split()[1])))
 
+def isolate_output_for_1(top_ligand_filenames):
+   
+    logging.info("runing isolate_output_for_1")
+    logging.info(top_ligand_filenames)
+    top_ligand_filenames = [line.split()[0] for line in top_ligand_filenames]
+    logging.info(top_ligand_filenames)
+    ligands_docked = 0
+    
+    for dirpath, _, filenames in os.walk('./output/pdbqt'):
+        ligands_docked += len(filenames)
+        for top_filename in top_ligand_filenames:
+            for filename in filenames:
+                if filename == f'output_{top_filename}':
+                    shutil.move(f'{dirpath}/{filename}', './output/results/ligands')
+    
+    combined = open('./output/results/combined_docked_ligands.pdbqt', 'w+')
+    while top_ligand_filenames:
+        with open(f'./output/results/ligands/output_{top_ligand_filenames.pop(0)}') as f:
+            lines = f.read()
+            combined.write(lines)
+    combined.close()
+    
+    logging.info(f"Total ligands docked = {ligands_docked}")
+    subprocess.run([f'tar -czf results.tar.gz ./output/results'], shell=True)
 
 def isolate_output(): #step 5 isolates
     """
