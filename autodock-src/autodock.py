@@ -149,13 +149,7 @@ def main():
         finished_message = COMM.recv(source=1,tag=1)
         logging.info(finished_message)
         top_ligand_filenames =  COMM.recv(source=1,tag=2)
-        logging.info(top_ligand_filenames)
-        #if finished_message == ''
-        # while current_responses != (1):
-        #     response = COMM.recv(source = 1)
-        #     if response == 'message received--proceed to post-processing':
-        #         current_responses += 1
-
+    
         # When all ligands have been sent, let worker ranks know they can stop
         logging.info("Tell all ranks there is no more work")
         for i in range(2,SIZE):
@@ -174,7 +168,7 @@ def main():
 
         # Post-Processing
         sort()
-        isolate_output_for_1(top_ligand_filenames)
+        isolate_output_for_rank1(top_ligand_filenames)
         #isolate_output()
         reset()
         end_time = time.time()
@@ -192,7 +186,7 @@ def main():
         
         if message == "Rank 1 will be ready to clean as we go":
             logging.info("This is means it works")
-            clean_as_we_go()
+            clean_as_we_go_another()
 
     else: # All ranks besides rank 0
         COMM.recv(source=0) # Wait for rank 0 to finish pre-processing
@@ -217,9 +211,32 @@ def clean_as_we_go():
         # Check if it's a stop message from rank 0
         if message == 'stop working':
             logging.info("Rank 0 sent a message to rank 1 to stop")
-            logging.info("Stopping cleaning as we go, ready for last sort")
-            break
-        
+            command = "find output/pdbqt/ -name '*pdbqt' | wc -l"
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+            pdbqt_files = result.stdout.strip()
+            pdbqt_files = int(pdbqt_files)
+            logging.info(f'number of files in system is: {pdbqt_files}')
+            #checks if we are keeping the top n elements before break
+            if pdbqt_files == top_results:
+                logging.info("Stopping cleaning as we go, ready for last sort")
+                break
+            else:
+                # if they are not the same we delete the remaining files not in the top n
+                logging.info("number of pdbqt_files is not the same as top_results")
+                logging.info(lines_to_remove)
+                break
+                # for dirpath, _, filenames in os.walk('./output/pdbqt'):
+                #                 for line in lines_to_remove:
+                #                     name = line.split()[0]
+                #                     for filename in filenames:
+                #                         file_path = os.path.join(dirpath, filename)
+                #                         if filename == f'output_{name}':# this is correct
+                #                             os.remove(file_path)
+                #                             logging.info(f'file path {file_path} was removed')
+                # if pdbqt_files == top_results:
+                #     logging.info("Stopping cleaning as we go, number of files the same as top_results")
+                #     break 
+
         # check if its a file result update
         elif "File results" in message:
             file_counter+=1
@@ -234,18 +251,10 @@ def clean_as_we_go():
                 
                 # Remove Top N elements
                 lines_to_remove = lines[top_results:]
+                lines_to_keep = lines[:top_results]
                 logging.info(f'number of lines in linestoremove= {str(len(lines_to_remove))}') #checks size for sorted_lines which should only have until the nth element
                 
-
-                # Pausing here -
-                # 'name' is part of the filename we need to remove, e.g.  it might look like 'ZINC000038308179-t1.pdbqt'
-                # then we need to walk the output folder to see if it is in there, might look like './output/pdbqt/21/output_ZINC000038308179-t1.pdbqt'
-                # if it is there, then remove it
-                # Also need to consider how we can avoid trying to remove molecules we already removed on an earlier iteration of this loop
-                #   perhaps try to remove the score from ./results_nn.txt?
-                
                 try:
-                        # line_counter+=1
                         for dirpath, _, filenames in os.walk('./output/pdbqt'):
                                 for line in lines_to_remove:
                                     name = line.split()[0]
@@ -256,17 +265,91 @@ def clean_as_we_go():
                                                 # logging.info(name)
                                             os.remove(file_path)
                                             logging.info(f'file path {file_path} was removed')
-                        # line_counter = 0
                 except:
                             logging.info("file couldnt be deleted")
                 file_counter = 0   
             
-    
     #informs rank 0 that rank 1 is done 
     COMM.send("finished--proceed to post-processing",dest = 0,tag=1)
     COMM.send(lines[:top_results],dest = 0,tag=2)
     #COMM.send("hi",dest = 0,tag=2)
     logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
+
+def clean_as_we_go_another():
+    '''
+        cleaning as we go function constantly checks for result files being generated, sorts it using sort() function
+        and keeps only the top n results by finding a threshold this gets updated 
+    '''
+    logging.info("We are cleaning as we go")
+    ligands_folder = 'output/results/ligands'
+    top_results = args.number
+    file_counter = 0
+    files_before_cleanup = 10
+    while True:
+        # receive message from any source
+        message = COMM.recv(source=MPI.ANY_SOURCE)
+        # Check if it's a stop message from rank 0
+        if message == 'stop working':
+            logging.info("Rank 0 sent a message to rank 1 to stop")
+            command = "find output/pdbqt/ -name '*pdbqt' | wc -l"
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+            pdbqt_files = result.stdout.strip()
+            pdbqt_files = int(pdbqt_files)
+            logging.info(f'number of files in system is: {pdbqt_files}')
+            #checks if we are keeping the top n elements before break
+            if pdbqt_files == top_results:
+                logging.info("Stopping cleaning as we go, ready for last sort")
+                break
+            else:
+                # if they are not the same we delete the remaining files not in the top n
+                logging.info("number of pdbqt_files is not the same as top_results")
+                sort_for_rank1()
+                flines_to_remove,lines_to_keep = file_deletion(top_results)
+                command = "find output/pdbqt/ -name '*pdbqt' | wc -l"
+                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+                pdbqt_files = result.stdout.strip()
+                pdbqt_files = int(pdbqt_files)
+                logging.info(f'number of files in system is: {pdbqt_files}')
+                break
+        # check if its a file result update
+        elif "File results" in message:
+            file_counter+=1
+            current_time = time.strftime("%H:%M:%S")
+            sender_rank = message.split('_')[1]  
+            logging.info(message + " at " + current_time)
+            if file_counter >= files_before_cleanup:
+                sort_for_rank1() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores_all.txt". 
+                lines_to_remove,lines_to_keep = file_deletion(top_results)
+                file_counter = 0   
+    
+    #informs rank 0 that rank 1 is done 
+    COMM.send("finished--proceed to post-processing",dest = 0,tag=1)
+    COMM.send(lines_to_keep,dest = 0,tag=2)
+    logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
+
+def file_deletion(top_results):
+    with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
+        lines = sorted_scores.readlines()
+        logging.info(f'number of lines = {str(len(lines))}')
+                
+    # Remove Top N elements
+    lines_to_remove = lines[top_results:]
+    lines_to_keep = lines[:top_results]
+    logging.info(f'number of lines in linestoremove= {str(len(lines_to_remove))}') #checks size for sorted_lines which should only have until the nth element
+                
+    try:
+            for dirpath, _, filenames in os.walk('./output/pdbqt'):
+                    for line in lines_to_remove:
+                        name = line.split()[0]
+                        for filename in filenames:
+                            file_path = os.path.join(dirpath, filename)
+                            if filename == f'output_{name}': # this is correct
+                                os.remove(file_path)
+                                logging.info(f'file path {file_path} was removed')
+    except:
+            logging.info("file couldnt be deleted")
+                
+    return lines_to_remove,lines_to_keep  
     
 def check_user_configs():
     # User inputted box size must be within bounds specified below
@@ -606,12 +689,10 @@ def sort_for_rank1(): # step 4
     with open(OUTPUTFILE, 'w') as data:
         data.writelines(sorted(result, key=lambda x: float(x.split()[1])))
 
-def isolate_output_for_1(top_ligand_filenames):
+def isolate_output_for_rank1(top_ligand_filenames):
    
     logging.info("runing isolate_output_for_1")
-    logging.info(top_ligand_filenames)
     top_ligand_filenames = [line.split()[0] for line in top_ligand_filenames]
-    logging.info(top_ligand_filenames)
     ligands_docked = 0
     
     for dirpath, _, filenames in os.walk('./output/pdbqt'):
@@ -675,5 +756,4 @@ def reset():
     shutil.rmtree('./output')
     shutil.rmtree('./configs')
         
-
 main()
