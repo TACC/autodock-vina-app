@@ -28,3 +28,7 @@ ENV PATH="$PATH:/ADFRsuite_x86_64Linux_1.0/bin"
 COPY ./autodock-src /autodock-src
 ENV PATH="$PATH:/autodock-src"
 
+COPY assets/runner.sh /tapis/assets/runner.sh
+RUN chmod +x /tapis/assets/runner-template.sh
+
+ENTRYPOINT ["/tapis/assets/runner-template.sh"]
