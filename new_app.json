@@ -1,0 +1,125 @@
+{
+    "id": "urrutia-Autodock-Vina",
+    "version": "1.2.3",
+    "description": "OpenSeesMP is an OpenSees interpreter intended for high performance computers for performing finite element simulations with parameteric studies and very large models on parallel machines. OpenSeesMP requires understanding of parallel processing and the capabilities to write parallel scripts.",
+    "owner": "${apiUserId}",
+    "enabled": true,
+    "runtime": "SINGULARITY",
+    "runtimeVersion": null,
+    "runtimeOptions": [
+        "SINGULARITY_RUN"
+    ],
+    "containerImage": "docker://wjallen/autodock_vina:1.2.3",
+    "jobType": "BATCH",
+    "maxJobs": -1,
+    "maxJobsPerUser": -1,
+    "strictFileInputs": true,
+    "jobAttributes": {
+        "execSystemConstraints": null,
+        "execSystemId": "ls6",
+        "execSystemExecDir": "${JobWorkingDir}",
+        "execSystemInputDir": "${JobWorkingDir}",
+        "execSystemOutputDir": "${JobWorkingDir}",
+        "execSystemLogicalQueue": "normal",
+        "archiveSystemId": "cloud.data",
+        "archiveSystemDir": "HOST_EVAL($WORK)/tapis-jobs-archive/${JobCreateDate}/${JobName}-${JobUUID}",
+        "archiveOnAppError": true,
+        "isMpi": true,
+        "mpiCmd": "ibrun",
+        "parameterSet": {
+            "appArgs": [
+            ],
+            "containerArgs": [
+            ],
+            "schedulerOptions": [
+                {
+                    "name": "TACC Scheduler Profile",
+                    "description": "Scheduler profile for HPC clusters at TACC",
+                    "inputMode": "FIXED",
+                    "arg": "--tapis-profile tacc-apptainer",
+                    "notes": {
+                        "isHidden": true
+                    }
+                },
+                {
+                    "name": "Slurm job name",
+                    "description": "Set the slurm job name to be identical to the Tapis job name.",
+                    "inputMode": "FIXED",
+                    "arg": "--job-name ${JobName}",
+                    "notes": {
+                        "isHidden": true
+                    }
+                }
+            ],
+            "envVariables": [
+                {
+                    "key": "library",
+                    "value": "/scratch/projects/docking/Test-set-compressed"
+                },
+                {
+                    "key": "center_x",
+                    "value": "0"
+                },
+                {
+                    "key": "center_y",
+                    "value": "0"
+                },
+                {
+                    "key": "center_z",
+                    "value": "0"
+                },
+                {
+                    "key": "size_x",
+                    "value": "20"
+                },
+                {
+                    "key": "size_y",
+                    "value": "20"
+                },
+                {
+                    "key": "size_z",
+                    "value": "20"
+                },
+                {
+                    "key": "forcefield",
+                    "value": "vina"
+                },
+                {
+                    "key": "docking",
+                    "value": "rigid"
+                },
+                {
+                    "key": "flexible_sidechains",
+                    "value": ""
+                },
+                {
+                    "key": "top_n_scores",
+                    "value": "500"
+                }
+            ],
+            "archiveFilter": {
+                "includes": [],
+                "excludes": [],
+                "includeLaunchFiles": true
+            }
+        },
+        "fileInputs": [
+        ],
+        "fileInputArrays": [],
+        "nodeCount": 2,
+        "coresPerNode": 128,
+        "memoryMB": 256000,
+        "maxMinutes": 2880,
+        "subscriptions": [],
+        "tags": []
+    },
+    "tags": [],
+    "notes": {
+        "label": "Run Autodock-Vina for virtual screening",
+        "helpUrl": "",
+        "hideNodeCountAndCoresPerNode": false,
+        "isInteractive": false,
+        "icon": null,
+        "category": "Simulation"
+    }
+}
