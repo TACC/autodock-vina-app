@@ -143,40 +143,30 @@ def main():
             COMM.send(ligands.pop(), dest=source)
         logging.info("Rank 0: List of ligands is now empty")
 
-        #COMM.send('stop working', dest=1)
-
-        # finished_message = COMM.recv(source=1,tag=1)
-        # logging.info(finished_message)
-        # top_ligand_filenames =  COMM.recv(source=1,tag=2)
-        
-        #if finished_message:
         # When all ligands have been sent, let worker ranks know they can stop
         logging.info("Tell all ranks there is no more work")
         for i in range(2,SIZE):
                 COMM.send('no more ligands', dest=i)
                 logging.info('no more ligands')
         
-        #COMM.send('stop working', dest=1)
-        
-        # finished_message = COMM.recv(source=1,tag=1)
-        # logging.info(finished_message)
-        #top_ligand_filenames =  COMM.recv(source=1,tag=2)
-
         current_responses = 0
         while current_responses != (SIZE - 2):
             response = COMM.recv(source = MPI.ANY_SOURCE)
             if response == 'message received--proceed to post-processing':
                 current_responses += 1
 
-
         current_time = time.strftime("%H:%M:%S")
         logging.info(f"Rank {RANK}: All ranks have responded; Proceeding to post-processing at {current_time}")
         print(f"From Rank 0: All ranks done; going to post-processing at {time.time()}")
         
+        COMM.send('stop working', dest=1)
+        finished_message = COMM.recv(source=1,tag=1)
+        logging.info(finished_message)
+        top_ligand_filenames =  COMM.recv(source=1,tag=2)
+
         # Post-Processing
         sort()
         isolate_output_for_rank1(top_ligand_filenames)
-        #isolate_output()
         reset()
         end_time = time.time()
         total_time = end_time - start_time
@@ -258,7 +248,7 @@ def file_deletion(top_results):
     with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
         lines = sorted_scores.readlines()
         logging.info(f'number of lines = {str(len(lines))}')
-                
+            
     # Remove Top N elements
     lines_to_remove = lines[top_results:]
     lines_to_keep = lines[:top_results]
@@ -443,25 +433,7 @@ def run_docking(ligands, v, directory): #step 3
                        {output_directory}/output_{filename} \
                        | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
                        >> results_{RANK}.txt"], shell=True)
-        logging.info('wrote results file')
         COMM.send(f"File results_{RANK}.txt was generated", dest=1)
-        #time.sleep(12)
-        
-        # sub_score=''
-        # logging.debug(f'trying to open {output_directory}/output_{filename}')
-        # with open(f'{output_directory}/output_{filename}', 'r') as f:
-        #     logging.debug(f'opened {output_directory}/output_{filename}')
-        #     for line in f:
-        #         if "REMARK VINA RESULT" in line:
-        #             sub_score = line.split()[3]
-        #             break
-        # output_lines = f'{sub_score}\n{filename}\n'
-        # with open(f'results_{RANK}.txt', 'w') as out:
-        #     out.write(output_lines)
-        
-        #COMM.send(f"File results_{RANK}.txt was generated", dest=1)
-        #time.sleep(12) # REMOVE THIS LATER
-        
 
 def unpickle_and_decompress(path_to_file):
     # Given a filepath, decompresses and unpickles the file. Returns the 
