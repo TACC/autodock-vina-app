@@ -11,11 +11,6 @@ import time
 import logging
 import shutil
 
-# Initialize logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)s %(message)s',
-                    filename='autodock.log',
-                    filemode='w')
 
 """
 Setup base MPI declarations
@@ -31,6 +26,13 @@ COMM = MPI.COMM_WORLD
 SIZE = COMM.Get_size()
 RANK = COMM.Get_rank()
 
+# Initialize logging
+format_str=f'[%(asctime)s {RANK}] %(filename)s:%(funcName)s:%(lineno)s - %(levelname)s: %(message)s'
+logging.basicConfig(level=logging.INFO,
+                    format= format_str)
+                    #filename='autodock.log',
+                    #filemode='w')
+
 # Assign user inputs
 parser = argparse.ArgumentParser(description ='vina commands')
 parser.add_argument('-r','--receptor',type=str,
@@ -43,7 +45,7 @@ parser.add_argument('-m','--module',type=str,required=True,
                     help='vina or ad4 module')
 parser.add_argument('-d','--docking',type=str,required=True,
                     help='basic or flexible docking')
-parser.add_argument('-f','--sidechains',type=str,required=False,
+parser.add_argument('-f','--sidechains',type=str,default='EMPTY',required=False,
                     help='sidechains if flexible docking')
 parser.add_argument('-n','--number',type=int,required=True,
                     help='top n results to return')
@@ -74,7 +76,11 @@ if DOCKING == 'rigid':
     FLEXIBLE = False
 elif DOCKING == 'flexible':
     FLEXIBLE = True
+
+ 
 SIDECHAINS = (args.sidechains).split('_')
+
+#this is just a comment and another
 LIBRARY_SHORT = args.ligand_library.split('/')[4]
 NUMBER_OF_OUTPUTS = args.number if args.number <= 1000 else 1000
 
@@ -105,49 +111,62 @@ MAX_SIDECHAINS = 6
 logging.debug(f"TASKS = {TASKS}; NODES = {NODES}; EXPECTED TASKS = {EXPECTED_TASKS}; EXPECTED NODES = {EXPECTED_NODES}")
 
 
+
 def main():
+    current_responses = 0
     if RANK == 0:
         start_time = time.time()
         # Pre-Processing
-        pre_processing()
-        ligands = prep_ligands()
+        pre_processing()            #step 1
+        ligands = prep_ligands()    #step 2
         # Let other ranks know pre-processing is finished; they can now ask for work
-        logging.debug("Pre-processing finished; Starting sendrecv with all ranks")
+        logging.info("Pre-processing finished; Starting sendrecv with all ranks")
+        
         for i in range(1,SIZE):
+            #sending the pre-processing message to other messages 
             COMM.send('pre-processing finished; ask for work', dest=i)
-        logging.debug("Send finished; All ranks sent;")
-
+        logging.info("Send finished; All ranks sent;")
+        
         pre_responses = 0
         while pre_responses != (SIZE - 1):
             response = COMM.recv(source = MPI.ANY_SOURCE)
             if response == 'ready to go':
                 pre_responses += 1
-        logging.debug("recv finished; All ranks responded; Starting main work")
+        logging.info("recv finished; All ranks responded; Starting main work")
+
+        COMM.send("Rank 1 will be ready to clean as we go", dest=1, tag=1)
+        logging.info("rank 1 will be ready to clean as we go")
 
         # Until all ligands have been docked, send more work to worker ranks
         while ligands:
             source = COMM.recv(source=MPI.ANY_SOURCE)
             COMM.send(ligands.pop(), dest=source)
-        logging.debug("Rank 0: List of ligands is now empty")
+        logging.info("Rank 0: List of ligands is now empty")
 
         # When all ligands have been sent, let worker ranks know they can stop
-        logging.debug("Tell all ranks there is no more work")
-        for i in range(1,SIZE):
-            COMM.send('no more ligands', dest=i)
+        logging.info("Tell all ranks there is no more work")
+        for i in range(2,SIZE):
+                COMM.send('no more ligands', dest=i)
+                logging.info('no more ligands')
         
         current_responses = 0
-        while current_responses != (SIZE - 1):
+        while current_responses != (SIZE - 2):
             response = COMM.recv(source = MPI.ANY_SOURCE)
             if response == 'message received--proceed to post-processing':
                 current_responses += 1
 
         current_time = time.strftime("%H:%M:%S")
-        logging.debug(f"Rank {RANK}: All ranks have responded; Proceeding to post-processing at {current_time}")
+        logging.info(f"Rank {RANK}: All ranks have responded; Proceeding to post-processing at {current_time}")
         print(f"From Rank 0: All ranks done; going to post-processing at {time.time()}")
+        
+        COMM.send('stop working', dest=1)
+        finished_message = COMM.recv(source=1,tag=1)
+        logging.info(finished_message)
+        top_ligand_filenames =  COMM.recv(source=1,tag=2)
 
         # Post-Processing
         sort()
-        isolate_output()
+        isolate_output_for_rank1(top_ligand_filenames)
         reset()
         end_time = time.time()
         total_time = end_time - start_time
@@ -157,13 +176,98 @@ def main():
         logging.info(f"Tasks: {TASKS}.")
         logging.info(f"Library: {LIBRARY_SHORT}.")
 
+    elif RANK == 1:
+        COMM.recv(source=0) # Wait for rank 0 to finish pre-processing
+        COMM.send('ready to go', dest=0)
+        message = COMM.recv(source = 0)
+       
+        if message == "Rank 1 will be ready to clean as we go":
+            logging.info("This is means it works")
+            clean_as_we_go_another()
+
     else: # All ranks besides rank 0
         COMM.recv(source=0) # Wait for rank 0 to finish pre-processing
         COMM.send('ready to go', dest=0)
         processing()    
+
 # End def main()
 
+def clean_as_we_go_another():
+    '''
+        cleaning as we go function constantly checks for result files being generated, sorts it using sort() function
+        and keeps only the top n results by finding a threshold this gets updated 
+    '''
+    logging.info("We are cleaning as we go")
+    ligands_folder = 'output/results/ligands'
+    top_results = args.number
+    file_counter = 0
+    files_before_cleanup = 10
+    while True:
+        # receive message from any source
+        message = COMM.recv(source=MPI.ANY_SOURCE)
+        # Check if it's a stop message from rank 0
+        if message == 'stop working':
+            logging.info("Rank 0 sent a message to rank 1 to stop")
+            command = "find output/pdbqt/ -name '*pdbqt' | wc -l"
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+            pdbqt_files = result.stdout.strip()
+            pdbqt_files = int(pdbqt_files)
+            logging.info(f'number of files in system is: {pdbqt_files}')
+            #checks if we are keeping the top n elements before break
+            if pdbqt_files == top_results:
+                logging.info("Stopping cleaning as we go, ready for last sort")
+                break
+            else:
+                # if they are not the same we delete the remaining files not in the top n
+                logging.info("number of pdbqt_files is not the same as top_results")
+                sort_for_rank1()
+                flines_to_remove,lines_to_keep = file_deletion(top_results)
+                command = "find output/pdbqt/ -name '*pdbqt' | wc -l"
+                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+                pdbqt_files = result.stdout.strip()
+                pdbqt_files = int(pdbqt_files)
+                logging.info(f'number of files in system is: {pdbqt_files}')
+                break
+        # check if its a file result update
+        elif "File results" in message:
+            file_counter+=1
+            current_time = time.strftime("%H:%M:%S")
+            sender_rank = message.split('_')[1]  
+            logging.info(message + " at " + current_time)
+            if file_counter >= files_before_cleanup:
+                sort_for_rank1() # this cats the results that were generated into "merged_results" then sorts them into "sorted_scores_all.txt". 
+                lines_to_remove,lines_to_keep = file_deletion(top_results)
+                file_counter = 0   
+    
+    #informs rank 0 that rank 1 is done 
+    COMM.send("finished--proceed to post-processing",dest = 0,tag=1)
+    COMM.send(lines_to_keep,dest = 0,tag=2)
+    logging.info("Rank 1 finished cleaning and sent completion message to Rank 0")
 
+def file_deletion(top_results):
+    with open('./output/results/sorted_scores_all.txt', 'r') as sorted_scores:
+        lines = sorted_scores.readlines()
+        logging.info(f'number of lines = {str(len(lines))}')
+            
+    # Remove Top N elements
+    lines_to_remove = lines[top_results:]
+    lines_to_keep = lines[:top_results]
+    logging.info(f'number of lines in linestoremove= {str(len(lines_to_remove))}') #checks size for sorted_lines which should only have until the nth element
+                
+    try:
+            for dirpath, _, filenames in os.walk('./output/pdbqt'):
+                    for line in lines_to_remove:
+                        name = line.split()[0]
+                        for filename in filenames:
+                            file_path = os.path.join(dirpath, filename)
+                            if filename == f'output_{name}': # this is correct
+                                os.remove(file_path)
+                                logging.info(f'file path {file_path} was removed')
+    except:
+            logging.info("file couldnt be deleted")
+                
+    return lines_to_remove,lines_to_keep  
+    
 def check_user_configs():
     # User inputted box size must be within bounds specified below
     for size in [SIZE_X, SIZE_Y, SIZE_Z]:
@@ -210,6 +314,7 @@ def check_user_configs():
     if not (min(zbounds)) <= CENTER_Z <= (max(zbounds)):
         logging.error("Center z coordinate is not within bounds.")
         COMM.Abort()
+    
     
     # Maximum of 6 sidechains
     if len(SIDECHAINS) > MAX_SIDECHAINS:
@@ -274,19 +379,25 @@ def prep_receptor():
     
 
 def prep_ligands():
-    # Returns a list where each item is the path to a pickled and compressed
-    #   text file containing multiple ligand strings, ignores files that are
-    #   not in .pkl or .dat format
+    """
+        Function prep_ligands returns a list where each item is the path to a pickled and compressed text file 
+        containing multiple ligand strings (ignores pkl or .dat format).
+
+        Return: 
+            ligand_paths (list): a list where each item containis multiple ligand strings (the items arepickled and compressed).
+    
+    """
+    
     ligand_paths = []
     for dirpath, _, filenames in os.walk(args.ligand_library):
         for filename in filenames:
             if filename.endswith('.pkl') or filename.endswith('.dat'):
                 ligand_paths.append(f'{dirpath}/{filename}')
-    logging.debug(f"Ligands prepped. Number of ligand batch files = {len(ligand_paths)}")
+    logging.info(f"Ligands prepped. Number of ligand batch files = {len(ligand_paths)}")
     return ligand_paths
 
 
-def run_docking(ligands, v, directory):
+def run_docking(ligands, v, directory): #step 3 
     # Runs AutoDock on each ligand in the given set; outputs a .pdbqt file 
     #   showing the pose and all scores; appends the ligand name (filename) 
     #   and it's best pose/score to a temporary results file
@@ -317,11 +428,12 @@ def run_docking(ligands, v, directory):
         except Exception as e:
             logging.error(f"Rank {RANK}: Error writing ligand {filename}; Error = {e}")
             continue
+        ### putting subprocess write function on one line to avoid race condition
         subprocess.run([f"grep -i -m 1 'REMARK VINA RESULT:' \
-                        {output_directory}/output_{filename} \
-                        | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
-                        >> results_{RANK}.txt"], shell=True)
-
+                       {output_directory}/output_{filename} \
+                       | awk '{{print $4}}' >> results_{RANK}.txt; echo {filename} \
+                       >> results_{RANK}.txt"], shell=True)
+        COMM.send(f"File results_{RANK}.txt was generated", dest=1)
 
 def unpickle_and_decompress(path_to_file):
     # Given a filepath, decompresses and unpickles the file. Returns the 
@@ -343,6 +455,12 @@ def unpickle_and_decompress(path_to_file):
 
 
 def pre_processing():
+    """
+        pre_processing functions that helps to reduce clutter in main(), 
+        it prepares the config files, the receptor, affinity maps and checks for user configuration
+    
+    """
+    
     # Helper function to reduce clutter in main()
     os.makedirs('configs')
     os.makedirs('output/pdbqt')
@@ -354,6 +472,9 @@ def pre_processing():
 
 
 def processing():
+    """
+        Function processing handles sending ligands to worker ranks, receiving ligands from rank 0, and running docking for each ligand set.
+    """
     # Long method; difficult to de-couple any one part without breaking many things
 
     # Initialize docking configurations
@@ -377,11 +498,14 @@ def processing():
     count = 1
     directory = 1
     while True:
-        COMM.send(RANK,dest=0) # Ask rank 0 for another set of ligands
-        ligand_set_path = COMM.recv(source=0) # Wait for a response
+        COMM.send(RANK,dest=0) # Ask rank 0 for another set of ligands ###
+        ligand_set_path = COMM.recv(source=0) # Wait for a response 
+
+       # COMM.send(RANK,dest = 1)
+
         if ligand_set_path == 'no more ligands':
             current_time = time.strftime("%H:%M:%S")
-            logging.debug(f"Rank {RANK} has finished all work at {current_time}")
+            logging.info(f"Rank {RANK} has finished all work at {current_time}")
             print(f"Rank {RANK} done at {time.time()}")
             COMM.send('message received--proceed to post-processing',dest=0)
             break
@@ -394,8 +518,9 @@ def processing():
         try:
             run_docking(ligands, v, directory)
         except Exception as e:
-            logging.error(f'Error on rank {RANK}: docking error with \
-                            ligand set {ligand_set_path}, ligands {ligands}.')
+            #logging.error(f'Error on rank {RANK}: docking error with \
+            #                ligand set {ligand_set_path}, ligands {ligands}.')
+            logging.error(f'Error on rank {RANK}: docking error with ligand set {ligand_set_path}.')
             logging.debug(e)
 
         count += 1
@@ -404,15 +529,19 @@ def processing():
             directory += 1
 
 
-def sort():
+def sort(): # step 4 
+    """
+        The sort() function cats all results files into one, it arranges ligands based on the highest score; prints these sorted results are written to 
+        sorted_scores.txt; finally cleans up the directory
+    """
     # Cats all results files into one, arranges each line to read: 
     #   (ligand, top score), then sorts by score so that highest scoring 
     #   ligands are on top; prints these sorted results are written to 
     #   sorted_scores.txt; finally cleans up the directory
-    subprocess.run(["cat results* >> results_merged.txt"], shell=True)
-    INPUTFILE = 'results_merged.txt'
+
+    subprocess.run(["cat results* >> merged_results.txt"], shell=True)
+    INPUTFILE = 'merged_results.txt'
     OUTPUTFILE = './output/results/sorted_scores.txt'
-    
     result = []
 
     with open(INPUTFILE) as data:
@@ -426,13 +555,71 @@ def sort():
     with open(OUTPUTFILE, 'w') as data:
         data.writelines(sorted(result[:NUMBER_OF_OUTPUTS], \
                         key=lambda x: float(x.split()[1])))
-    
+        
+def sort_for_rank1(): # step 4 
+    """
+        The sort() function cats all results files into one, it arranges ligands based on the highest score; prints these sorted results are written to 
+        sorted_scores.txt; finally cleans up the directory
+    """
+    # Cats all results files into one, arranges each line to read: 
+    #   (ligand, top score), then sorts by score so that highest scoring 
+    #   ligands are on top; prints these sorted results are written to 
+    #   sorted_scores.txt; finally cleans up the directory
 
-def isolate_output():
+    try:
+        os.remove('./output/results/sorted_scores_all.txt')
+        os.remove('merged_results.txt')
+    except:
+        logging.info('exception in sort_for_rank1')
+    subprocess.run(["cat results* >> merged_results.txt"], shell=True)
+    INPUTFILE = 'merged_results.txt'
+    OUTPUTFILE = './output/results/sorted_scores_all.txt'
+    result = []
+
+    with open(INPUTFILE) as data:
+        line = data.readline()    
+        while line:
+            filename = basename(line.split()[-1])
+            #logging.info(filename)
+            v = data.readline().split()[0]
+            #logging.info(v)
+            result.append(f'{v} {filename}\n')
+            line = data.readline()
+
+    with open(OUTPUTFILE, 'w') as data:
+        data.writelines(sorted(result, key=lambda x: float(x.split()[1])))
+
+def isolate_output_for_rank1(top_ligand_filenames):
+   
+    logging.info("runing isolate_output_for_1")
+    top_ligand_filenames = [line.split()[0] for line in top_ligand_filenames]
+    ligands_docked = 0
+    
+    for dirpath, _, filenames in os.walk('./output/pdbqt'):
+        ligands_docked += len(filenames)
+        for top_filename in top_ligand_filenames:
+            for filename in filenames:
+                if filename == f'output_{top_filename}':
+                    shutil.move(f'{dirpath}/{filename}', './output/results/ligands')
+    
+    combined = open('./output/results/combined_docked_ligands.pdbqt', 'w+')
+    while top_ligand_filenames:
+        with open(f'./output/results/ligands/output_{top_ligand_filenames.pop(0)}') as f:
+            lines = f.read()
+            combined.write(lines)
+    combined.close()
+    
+    logging.info(f"Total ligands docked = {ligands_docked}")
+    subprocess.run([f'tar -czf results.tar.gz ./output/results'], shell=True)
+
+def isolate_output(): #step 5 isolates
+    """
+        isolate_ouput() function copies the user-specified top n ligand output files to a single directory (top_ligand_filenames)
+    """
     # Copies the user-specified top n ligand output files to a single directory
     top_ligand_filenames = []
     ligands_docked = 0
-    
+    logging.info("runing isolate_output")
     with open('./output/results/sorted_scores.txt', 'r') as results:
         for _, line in enumerate(results):
             top_ligand_filenames.append(line.split()[0])
@@ -456,7 +643,11 @@ def isolate_output():
 
 
 def reset():
-    # Reset directory by removing all created files from this job
+    """
+     reset() function resets directory by removing all created files from this job
+    
+    """
+
     for dirpath, _, filenames in os.walk('.'):
         for filename in filenames:
             if filename.endswith(('.map', '.txt', '.gpf', '.fld', '.xyz')):
@@ -465,5 +656,4 @@ def reset():
     shutil.rmtree('./output')
     shutil.rmtree('./configs')
         
-
 main()
