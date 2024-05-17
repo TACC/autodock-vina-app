@@ -1,7 +1,7 @@
 {
-    "id": "urrutia-Autodock-Vina",
+    "id": "braulio1-Autodock-Vina",
     "version": "1.2.3",
-    "description": "OpenSeesMP is an OpenSees interpreter intended for high performance computers for performing finite element simulations with parameteric studies and very large models on parallel machines. OpenSeesMP requires understanding of parallel processing and the capabilities to write parallel scripts.",
+    "description": "This application provides an interface for conducting virtual screening for identifying small molecules that bind to your target protein using Autodock Vina docking software. This application is intended to provide easy access to researchers wishing to perform small numbers of docking or virtual screening experiments. Visit the linked documentation page for a tutorial on running a job here.",
     "owner": "${apiUserId}",
     "enabled": true,
     "runtime": "SINGULARITY",
@@ -9,7 +9,7 @@
     "runtimeOptions": [
         "SINGULARITY_RUN"
     ],
-    "containerImage": "docker://wjallen/autodock_vina:1.2.3",
+    "containerImage": "docker://brauliolpx/autodock-vina-app:1.0.0",
     "jobType": "BATCH",
     "maxJobs": -1,
     "maxJobsPerUser": -1,
@@ -20,9 +20,9 @@
         "execSystemExecDir": "${JobWorkingDir}",
         "execSystemInputDir": "${JobWorkingDir}",
         "execSystemOutputDir": "${JobWorkingDir}",
-        "execSystemLogicalQueue": "normal",
+        "execSystemLogicalQueue": "development",
         "archiveSystemId": "cloud.data",
-        "archiveSystemDir": "HOST_EVAL($WORK)/tapis-jobs-archive/${JobCreateDate}/${JobName}-${JobUUID}",
+        "archiveSystemDir": "/work/09051/braulio1/ls6/tapis-jobs-archive/${JobCreateDate}/${JobName}-${JobUUID}",
         "archiveOnAppError": true,
         "isMpi": true,
         "mpiCmd": "ibrun",
@@ -95,6 +95,10 @@
                 {
                     "key": "top_n_scores",
                     "value": "500"
+                },
+                {
+                    "key": "VAL",
+                    "value": "0"
                 }
             ],
             "archiveFilter": {
@@ -109,7 +113,7 @@
         "nodeCount": 2,
         "coresPerNode": 128,
         "memoryMB": 256000,
-        "maxMinutes": 2880,
+        "maxMinutes": 20,
         "subscriptions": [],
         "tags": []
     },
