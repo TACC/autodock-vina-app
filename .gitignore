@@ -7,4 +7,7 @@ merged.txt
 *.pdbqt
 *.swp
 .DS_Store
+<<<<<<< main
 secrets.json
+=======
+>>>>>>> main
