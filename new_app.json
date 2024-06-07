@@ -9,7 +9,7 @@
     "runtimeOptions": [
         "SINGULARITY_RUN"
     ],
-    "containerImage": "docker://jurrutia/autodock-vina-app:1.0.0",
+    "containerImage": "docker://jurrutia/autodock-vina-app:1.0.1",
     "jobType": "BATCH",
     "maxJobs": -1,
     "maxJobsPerUser": -1,
@@ -28,9 +28,76 @@
         "mpiCmd": "ibrun",
         "parameterSet": {
             "appArgs": [
+                {
+                    "name": "library",
+                    "description": "Select the ligand database to screen.",
+                    "inputMode": "REQUIRED",
+                    "arg": "--ligand_library /scratch/projects/docking/Test-set-compressed",
+                    "notes": {
+                        "fieldType": "enumeration"
+                    }
+                },
+                {
+                    "name": "center",
+                    "description": "X, Y, Z coordinate of the center (Angstrom).",
+                    "inputMode": "REQUIRED",
+                    "arg": "--center 0,0,0",
+                    "notes": {
+                        "fieldType": "string"
+                    }
+                },
+                {
+                    "name": "size",
+                    "description": "Size in the X,Y,Z dimension (Angstrom).",
+                    "inputMode": "REQUIRED",
+                    "arg": "--size 20,20,20",
+                    "notes": {
+                        "fieldType": "string"
+                    }
+                },
+                {
+                    "name": "forcefield",
+                    "description": "Select whether molecular docking is run using the AutoDock Vina forcefieldv (vina) or the AutoDock4 forcefield (ad4).",
+                    "inputMode": "REQUIRED",
+                    "arg": "--module vina",
+                    "notes": {
+                        "fieldType": "enumeration"
+                    }
+                },
+                {
+                    "name": "docking",
+                    "description": "Select whether to use rigid or flexible docking methods. If flexible is chosen, please provide the flexible sidechain names below.",
+                    "inputMode": "REQUIRED",
+                    "arg": "--docking rigid",
+                    "notes": {
+                        "fieldType": "enumeration"
+                    }
+                },
+                {
+                    "name": "flexible_sidechains",
+                    "description": "If using flexible docking, provide the sidechain names with an underscore separating each (e.g. --sidechains ASP363_SER385_TYR393).",
+                    "inputMode": "INCLUDE_ON_DEMAND",
+                    "arg": null,
+                    "notes": {
+                        "fieldType": "string"
+                    }
+                },
+                {
+                    "name": "top_n_scores",
+                    "description": "The number of top scoring docked ligands to be returned (max: 1000).",
+                    "inputMode": "REQUIRED",
+                    "arg": "--number 500",
+                    "notes": {
+                        "fieldType": "string"
+                    }
+                }
             ],
             "containerArgs": [
             ],
+            "logConfig": {
+				"stderrFilename": "${JobUUID}.err",
+				"stdoutFilename": "${JobUUID}.out"
+			},
             "schedulerOptions": [
                 {
                     "name": "TACC Scheduler Profile",
@@ -53,51 +120,11 @@
             ],
             "envVariables": [
                 {
-                    "key": "library",
-                    "value": "/scratch/projects/docking/Test-set-compressed"
-                },
-                {
-                    "key": "center_x",
+                    "key": "MV2_ENABLE_AFFINITY",
                     "value": "0"
                 },
                 {
-                    "key": "center_y",
-                    "value": "0"
-                },
-                {
-                    "key": "center_z",
-                    "value": "0"
-                },
-                {
-                    "key": "size_x",
-                    "value": "20"
-                },
-                {
-                    "key": "size_y",
-                    "value": "20"
-                },
-                {
-                    "key": "size_z",
-                    "value": "20"
-                },
-                {
-                    "key": "forcefield",
-                    "value": "vina"
-                },
-                {
-                    "key": "docking",
-                    "value": "rigid"
-                },
-                {
-                    "key": "flexible_sidechains",
-                    "value": ""
-                },
-                {
-                    "key": "top_n_scores",
-                    "value": "500"
-                },
-                {
-                    "key": "VAL",
+                    "key": "MV2_SMP_USE_CMA",
                     "value": "0"
                 }
             ],

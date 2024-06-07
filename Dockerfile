@@ -27,8 +27,9 @@ ENV PATH="$PATH:/ADFRsuite_x86_64Linux_1.0/bin"
 # Copy scripts into container
 COPY ./autodock-src /autodock-src
 ENV PATH="$PATH:/autodock-src"
+RUN chmod +x /autodock-src/autodock.py
 
-COPY assets/runner.sh /tapis/assets/runner.sh
-RUN chmod +x /tapis/assets/runner.sh
+# COPY assets/runner.sh /tapis/assets/runner.sh
+# RUN chmod +x /tapis/assets/runner.sh
 
-ENTRYPOINT ["/tapis/assets/runner.sh"]
+ENTRYPOINT ["python3", "/autodock-src/autodock.py"]
