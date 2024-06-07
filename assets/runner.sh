@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # set flexible sidechains, if any
 FLEX=${flexible_sidechains}
 if [ -z $FLEX ]; then

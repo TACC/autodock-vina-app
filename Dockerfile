@@ -32,4 +32,4 @@ RUN chmod +x /autodock-src/autodock.py
 # COPY assets/runner.sh /tapis/assets/runner.sh
 # RUN chmod +x /tapis/assets/runner.sh
 
-ENTRYPOINT ["python3", "/autodock-src/autodock.py"]
+ENTRYPOINT ["python3", "/autodock-src/autodock.py"

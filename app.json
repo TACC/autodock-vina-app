@@ -1,221 +1,129 @@
 {
-  "checkpointable": false,
-  "name": "wallen-{{ app.name }}",
-  "executionSystem": "tacc.lonestar6.wallen",
-  "executionType": "HPC",
-  "deploymentPath": "tapis/apps/wallen-{{ app.name }}-{{ app.version }}",
-  "deploymentSystem": "cloud.corral.work.wallen",
-  "helpURI": "https://drugdiscovery.tacc.utexas.edu/documentation",
-  "label": "{{ app.label }}",
-  "shortDescription": "{{ app.description }}",
-  "longDescription": "This application provides an interface for conducting virtual screening for identifying small molecules that bind to your target protein using Autodock Vina docking software. This application is intended to provide easy access to researchers wishing to perform small numbers of docking or virtual screening experiments. Visit the linked documentation page for a tutorial on running a job here.",
-  "modules": [
-    "load tacc-apptainer",
-    "load mvapich2",
-    "unload xalt"
-  ],
-  "ontology": [],
-  "parallelism": "PARALLEL",
-  "tags": [],
-  "templatePath": "runner.sh",
-  "testPath": "tester.sh",
-  "version": "{{ app.version }}",
-  "defaultProcessorsPerNode": 32,
-  "defaultMemoryPerNode": "96GB",
-  "defaultMaxRunTime": "36:00:00",
-  "inputs": [    
-   {
-    "id": "receptor",
-    "value": {
-      "default": "",
-      "visible": true,
-      "required": true
-    },
-    "details": {
-      "label": "Protein Receptor Input File",
-      "description": "Target protein receptor in .pdb or .pdbqt format."
-    },
-    "semantics": {}
-  }],
-  "parameters": [
-    {
-      "id": "CONTAINER_IMAGE",
-      "value": {
-        "default": "{{ docker.namespace }}/{{ docker.repo }}:{{ docker.tag }}",
-        "type": "string",
-        "visible": false,
-        "required": true,
-        "order": 1000
-      }
-    },
-    {  
-      "id": "library",
-      "value": {
-        "default": "/scratch/projects/docking/Test-set-compressed",
-        "enumValues":[
-          {"/scratch/projects/docking/Test-set-compressed": "Test-set"},
-          {"/scratch/projects/docking/Enamine-PC-compressed": "Enamine-PC"},
-          {"/scratch/projects/docking/Enamine-AC-compressed": "Enamine-AC"},
-          {"/scratch/projects/docking/Enamine-HTSC-compressed": "Enamine-HTSC"},
-          {"/scratch/projects/docking/ZINC-fragments-compressed": "ZINC-fragments"},
-          {"/scratch/projects/docking/ZINC-in-trials-compressed": "ZINC-in-trials"}
+    "id": "braulio1-Autodock-Vina",
+    "version": "1.2.3",
+    "description": "This application provides an interface for conducting virtual screening for identifying small molecules that bind to your target protein using Autodock Vina docking software. This application is intended to provide easy access to researchers wishing to perform small numbers of docking or virtual screening experiments. Visit the linked documentation page for a tutorial on running a job here.",
+    "owner": "${apiUserId}",
+    "enabled": true,
+    "runtime": "SINGULARITY",
+    "runtimeVersion": null,
+    "runtimeOptions": [
+        "SINGULARITY_RUN"
+    ],
+    "containerImage": "docker://brauliolpx/autodock-vina-app:1.0.0",
+    "jobType": "BATCH",
+    "maxJobs": -1,
+    "maxJobsPerUser": -1,
+    "strictFileInputs": true,
+    "jobAttributes": {
+        "execSystemConstraints": null,
+        "execSystemId": "ls6",
+        "execSystemExecDir": "${JobWorkingDir}",
+        "execSystemInputDir": "${JobWorkingDir}",
+        "execSystemOutputDir": "${JobWorkingDir}",
+        "execSystemLogicalQueue": "development",
+        "archiveSystemId": "cloud.data",
+        "archiveSystemDir": "/work/09051/braulio1/ls6/tapis-jobs-archive/${JobCreateDate}/${JobName}-${JobUUID}",
+        "archiveOnAppError": true,
+        "isMpi": true,
+        "mpiCmd": "ibrun",
+        "parameterSet": {
+            "appArgs": [
+            ],
+            "containerArgs": [
+            ],
+            "schedulerOptions": [
+                {
+                    "name": "TACC Scheduler Profile",
+                    "description": "Scheduler profile for HPC clusters at TACC",
+                    "inputMode": "FIXED",
+                    "arg": "--tapis-profile tacc-apptainer",
+                    "notes": {
+                        "isHidden": true
+                    }
+                },
+                {
+                    "name": "Slurm job name",
+                    "description": "Set the slurm job name to be identical to the Tapis job name.",
+                    "inputMode": "FIXED",
+                    "arg": "--job-name ${JobName}",
+                    "notes": {
+                        "isHidden": true
+                    }
+                }
+            ],
+            "envVariables": [
+                {
+                    "key": "library",
+                    "value": "/scratch/projects/docking/Test-set-compressed"
+                },
+                {
+                    "key": "center_x",
+                    "value": "0"
+                },
+                {
+                    "key": "center_y",
+                    "value": "0"
+                },
+                {
+                    "key": "center_z",
+                    "value": "0"
+                },
+                {
+                    "key": "size_x",
+                    "value": "20"
+                },
+                {
+                    "key": "size_y",
+                    "value": "20"
+                },
+                {
+                    "key": "size_z",
+                    "value": "20"
+                },
+                {
+                    "key": "forcefield",
+                    "value": "vina"
+                },
+                {
+                    "key": "docking",
+                    "value": "rigid"
+                },
+                {
+                    "key": "flexible_sidechains",
+                    "value": ""
+                },
+                {
+                    "key": "top_n_scores",
+                    "value": "500"
+                },
+                {
+                    "key": "VAL",
+                    "value": "0"
+                }
+            ],
+            "archiveFilter": {
+                "includes": [],
+                "excludes": [],
+                "includeLaunchFiles": true
+            }
+        },
+        "fileInputs": [
         ],
-        "type": "enumeration",
-        "visible": true,
-        "required": true,
-        "order": 1
-      },      
-      "details": {
-        "label": "Ligand Library",
-        "description": "Select the ligand database to screen."
-      }
+        "fileInputArrays": [],
+        "nodeCount": 2,
+        "coresPerNode": 128,
+        "memoryMB": 256000,
+        "maxMinutes": 20,
+        "subscriptions": [],
+        "tags": []
     },
-    {
-      "id": "center_x",
-      "value": {
-        "default": 0,
-        "type": "number",
-        "visible": true,
-        "required": true,
-        "order": 2
-      },
-      "details": {
-        "label": "center_x",
-        "description": "X coordinate of the center (Angstrom)."
-      }
-    },
-    {  
-      "id": "center_y",
-      "value": {
-        "default": 0,
-        "type": "number",
-        "visible": true,
-        "required": true,
-        "order": 3
-      },
-      "details": {
-        "label": "center_y",
-        "description": "Y coordinate of the center (Angstrom)."
-      }
-    },
-    {
-      "id": "center_z",
-      "value": {
-        "default": 0,
-        "type": "number",
-        "visible": true,   
-        "required": true,
-        "order": 4
-      },
-      "details": {
-        "label": "center_z",
-        "description": "Z coordinate of the center (Angstrom)."
-      }
-    },
-    {
-      "id": "size_x",
-      "value": {
-        "default": 20,    
-        "type": "number",
-        "visible": true,
-        "required": true,
-        "order": 5
-      },
-      "details": {
-        "label": "size_x",
-        "description": "Size in the X dimension (Angstrom)."
-      }
-    },
-    {
-      "id": "size_y",
-      "value": {
-        "default": 20,
-        "type": "number",
-        "visible": true,
-        "required": true,
-        "order": 6
-      },
-      "details": {
-        "label": "size_y",
-        "description": "Size in the Y dimension (Angstrom)."
-      }
-    },
-    {  
-      "id": "size_z",
-      "value": {
-        "default": 20,
-        "type": "number",
-        "visible": true,
-        "required": true,
-        "order": 7   
-      },
-      "details": {
-        "label": "size_z",
-        "description": "Size in the Z dimension (Angstrom)."
-      }
-    },
-    {  
-      "id": "forcefield",
-      "value": {
- 	      "default": "vina",
-        "enumValues":[
-  	      {"vina": "Vina"}
-        ],
-        "type": "enumeration",
-        "visible": false,
-        "required": true,
-        "order": 8   
-      },
-      "details": {
-        "label": "Scoring Method",
-        "description": "Select whether molecular docking is run using the AutoDock Vina forcefield or the AutoDock4 forcefield."
-      }
-    },
-    {
-      "id": "docking",
-      "value": {
-        "default": "rigid",
-        "enumValues":[
-          {"rigid": "Rigid"}
-        ],
-        "type": "enumeration",
-        "visible": false, 
-        "required": true,
-        "order": 9
-      },
-      "details": {
-        "label": "Docking Type",
-        "description": "Select whether to use rigid or flexible docking methods. If flexible is chosen, please provide the flexible sidechain names below."
-      }
-    },
-    {
-      "id": "flexible_sidechains",
-      "value": {
-        "default": "",
-        "type": "string",
-        "visible": false,
-        "required": false,
-        "order": 10   
-      },
-      "details": {
-        "label": "Flexible Sidechains",
-        "description": "If using flexible docking, provide the sidechain names with an underscore separating each (e.g. ASP363_SER385_TYR393)."
-      }
-    },
-    {
-      "id": "top_n_scores",
-      "value": {
-        "default": 500,
-        "type": "number",
-        "visible": true,
-        "required": true,
-        "order": 11
-      },
-      "details": {
-        "label": "Docked Molecules Returned",
-        "description": "The number of top scoring docked ligands to be returned (max: 1000)."
-      }
+    "tags": [],
+    "notes": {
+        "label": "Run Autodock-Vina for virtual screening",
+        "helpUrl": "",
+        "hideNodeCountAndCoresPerNode": false,
+        "isInteractive": false,
+        "icon": null,
+        "category": "Simulation"
     }
-  ],
-  "outputs": []
 }
